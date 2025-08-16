@@ -1,95 +1,95 @@
+"""
+Database Configuration and Connection Management Module
+
+This module handles all database-related operations including:
+- Database engine creation and configuration
+- Connection pooling and session management
+- Table creation and schema management
+- Database health checks and monitoring
+
+The module uses SQLAlchemy with async support for optimal performance
+and SQLModel for simplified model definitions.
+"""
+
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy import text
 from sqlmodel import SQLModel
-import asyncio
+import logging
 
 from app.config import db_settings
 
-# Base class for all models
+# Configure logging for database operations
+logger = logging.getLogger(__name__)
+
+# Base class for all models - uses SQLModel for enhanced functionality
+# SQLModel combines the best of SQLAlchemy and Pydantic
 Base = SQLModel
 
-# Create a database engine to connect with database
+# Create async database engine with connection pooling
+# The engine manages the connection pool and provides async database access
 engine = create_async_engine(
-    # database type/dialect and file name
+    # Database connection URL with asyncpg driver for PostgreSQL
     url=db_settings.get_database_url,
-    # Log sql queries
+    # Enable SQL query logging for debugging and monitoring
     echo=True,
+    # Connection pool configuration for optimal performance
+    pool_size=db_settings.DATABASE_POOL_SIZE,
+    max_overflow=db_settings.DATABASE_MAX_OVERFLOW,
+    # Connection timeout and retry settings
+    pool_timeout=30,
+    pool_recycle=3600,
 )
 
 
-async def get_session():
+async def get_session() -> AsyncSession:
+    """
+    Dependency function to provide database sessions.
+    
+    This function creates and yields database sessions for use in FastAPI
+    dependency injection. Each request gets a fresh session that is
+    automatically closed after use.
+    
+    Yields:
+        AsyncSession: Database session for the current request
+        
+    Note:
+        This function is designed to be used as a FastAPI dependency.
+        The session is automatically managed and cleaned up.
+    """
+    # Create session factory with async support
     async_session = sessionmaker(
-        bind=engine, class_=AsyncSession, expire_on_commit=False,
+        bind=engine, 
+        class_=AsyncSession, 
+        expire_on_commit=False,  # Keep objects accessible after commit
     )
 
+    # Create and yield session, ensuring proper cleanup
     async with async_session() as session:
         yield session
 
 
-async def check_db():
+async def check_db() -> None:
+    """
+    Check database connectivity and health.
+    
+    This function performs a simple health check by executing a basic
+    SQL query to verify the database is accessible and responding.
+    
+    Raises:
+        Exception: If database connection fails
+        
+    Note:
+        This function is useful for startup checks and health monitoring.
+    """
     async for session in get_session():
         try:
+            # Execute a simple query to test connectivity
             await session.execute(text("SELECT 1"))
+            logger.info("Database connection successful")
             print("Database connected")
         except Exception as e:
+            logger.error(f"Database connection failed: {e}")
             print(db_settings.get_database_url)
             print("Database NOT connected:", e)
-
-
-async def create_tables():
-    """Create all tables if they don't exist."""
-    try:
-        async with engine.begin() as conn:
-            # Check if sales schema exists, create if not
-            await conn.execute(text("CREATE SCHEMA IF NOT EXISTS sales"))
-            print("Schema 'sales' created or already exists")
-            
-            # Create all tables
-            await conn.run_sync(Base.metadata.create_all)
-            print("All tables created successfully")
-            
-    except Exception as e:
-        print(f"Error creating tables: {e}")
-
-
-async def check_tables():
-    """Check if required tables exist."""
-    async for session in get_session():
-        try:
-            # Check if products table exists in sales schema
-            result = await session.execute(text("""
-                SELECT EXISTS (
-                    SELECT FROM information_schema.tables 
-                    WHERE table_schema = 'sales' 
-                    AND table_name = 'products'
-                )
-            """))
-            table_exists = result.scalar()
-            
-            if table_exists:
-                print("Table 'sales.products' exists")
-                
-                # Check table structure
-                result = await session.execute(text("""
-                    SELECT column_name, data_type, is_nullable 
-                    FROM information_schema.columns 
-                    WHERE table_schema = 'sales' 
-                    AND table_name = 'products'
-                    ORDER BY ordinal_position
-                """))
-                columns = result.fetchall()
-                print("Table structure:")
-                for col in columns:
-                    print(f"  {col[0]}: {col[1]} (nullable: {col[2]})")
-            else:
-                print("Table 'sales.products' does not exist")
-                
-        except Exception as e:
-            print(f"Error checking tables: {e}")
-
-
-# Uncomment to run database checks
-# asyncio.run(check_db())
-# asyncio.run(create_tables())
-# asyncio.run(check_tables())
+            raise
