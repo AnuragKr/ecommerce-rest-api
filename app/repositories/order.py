@@ -46,14 +46,14 @@ class OrderRepository:
         get_order_with_items: Get order with all related items
     """
     
-    async def create_order(self, db: AsyncSession, order_data: dict, order_items: List[dict]) -> Order:
+    async def create_order(self, db: AsyncSession, order_data: dict, order_items: List) -> Order:
         """
         Create a new order with items in a transaction.
         
         Args:
             db (AsyncSession): Database session for the operation
             order_data (dict): Order creation data
-            order_items (List[dict]): List of order items
+            order_items (List): List of order items (can be dict or Pydantic models)
             
         Returns:
             Order: Created order model instance with generated ID
@@ -71,12 +71,20 @@ class OrderRepository:
             
             # Create order items
             for item_data in order_items:
-                item_data['order_id'] = db_order.order_id
-                db_order_item = OrderItem(**item_data)
+                # Handle both dict and Pydantic model objects
+                if hasattr(item_data, 'model_dump'):
+                    # Pydantic model - convert to dict
+                    item_dict = item_data.model_dump()
+                else:
+                    # Dictionary - use as is
+                    item_dict = item_data.copy()
+                
+                item_dict['order_id'] = db_order.order_id
+                db_order_item = OrderItem(**item_dict)
                 db.add(db_order_item)
             
             await db.commit()
-            await db.refresh(db_order)
+            await db.refresh(db_order, attribute_names=["order_items"])
             return db_order
             
         except Exception as e:
@@ -221,13 +229,13 @@ class OrderRepository:
         await db.commit()
         return True
     
-    async def check_stock_availability(self, db: AsyncSession, order_items: List[dict]) -> Tuple[bool, List[dict]]:
+    async def check_stock_availability(self, db: AsyncSession, order_items: List) -> Tuple[bool, List[dict]]:
         """
         Check if all products in order items have sufficient stock.
         
         Args:
             db (AsyncSession): Database session for the operation
-            order_items (List[dict]): List of order items to validate
+            order_items (List): List of order items to validate (can be dict or Pydantic models)
             
         Returns:
             Tuple[bool, List[dict]]: (is_available, validation_results)
@@ -238,15 +246,23 @@ class OrderRepository:
         all_available = True
         
         for item in order_items:
-            product_id = item['product_id']
-            requested_quantity = item['quantity']
+            # Handle both dict and Pydantic model objects
+            if hasattr(item, 'product_id'):
+                # Pydantic model
+                product_id = item.product_id
+                requested_quantity = item.quantity
+            else:
+                # Dictionary
+                product_id = item['product_id']
+                requested_quantity = item['quantity']
             
             # Get product stock
             result = await db.execute(
                 select(Product.stock_quantity, Product.price, Product.name)
                 .where(Product.product_id == product_id)
             )
-            product_data = result.scalar_one_or_none()
+
+            product_data = result.one_or_none()
             
             if not product_data:
                 validation_results.append({
@@ -264,7 +280,7 @@ class OrderRepository:
                     'product_id': product_id,
                     'product_name': name,
                     'requested': requested_quantity,
-                    'available': stock_quantity,
+                    'stock_available': stock_quantity,
                     'available': False,
                     'error': f'Insufficient stock. Available: {stock_quantity}, Requested: {requested_quantity}'
                 })
@@ -274,20 +290,20 @@ class OrderRepository:
                     'product_id': product_id,
                     'product_name': name,
                     'requested': requested_quantity,
-                    'available': stock_quantity,
+                    'stock_available': stock_quantity,
                     'available': True,
                     'unit_price': price
                 })
         
         return all_available, validation_results
     
-    async def update_product_stock(self, db: AsyncSession, order_items: List[dict]) -> bool:
+    async def update_product_stock(self, db: AsyncSession, order_items: List) -> bool:
         """
         Update product stock quantities after order placement.
         
         Args:
             db (AsyncSession): Database session for the operation
-            order_items (List[dict]): List of order items with quantities
+            order_items (List): List of order items with quantities (can be dict or Pydantic models)
             
         Returns:
             bool: True if stock update was successful
@@ -298,8 +314,15 @@ class OrderRepository:
         """
         try:
             for item in order_items:
-                product_id = item['product_id']
-                quantity = item['quantity']
+                # Handle both dict and Pydantic model objects
+                if hasattr(item, 'product_id'):
+                    # Pydantic model
+                    product_id = item.product_id
+                    quantity = item.quantity
+                else:
+                    # Dictionary
+                    product_id = item['product_id']
+                    quantity = item['quantity']
                 
                 # Update product stock
                 await db.execute(

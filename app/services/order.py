@@ -108,19 +108,20 @@ class OrderService:
             
             for item in order_in.order_items:
                 # Find the validation result for this item
+                print("Hi",type(item))
                 validation_result = next(
-                    (r for r in validation_results if r['product_id'] == item['product_id']), 
+                    (r for r in validation_results if r['product_id'] == item.product_id), 
                     None
                 )
                 
                 if validation_result and validation_result['available']:
                     unit_price = validation_result['unit_price']
-                    subtotal = unit_price * item['quantity']
+                    subtotal = unit_price * item.quantity
                     total_amount += subtotal
                     
                     order_items_data.append({
-                        'product_id': item['product_id'],
-                        'quantity': item['quantity'],
+                        'product_id': item.product_id,
+                        'quantity': item.quantity,
                         'unit_price': unit_price,
                         'subtotal': subtotal
                     })

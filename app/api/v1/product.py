@@ -21,7 +21,7 @@ API Endpoints:
 """
 
 from fastapi import APIRouter, HTTPException
-from app.core.dependencies import ProductServiceDep,CurrentAdminDep
+from app.core.dependencies import CurrentCustomerDep, ProductServiceDep,CurrentAdminDep
 from app.schemas import ProductCreate, ProductUpdate, ProductResponse
 from app.exceptions import ProductNotFoundError, DatabaseError
 
@@ -51,7 +51,7 @@ async def get_product(service: ProductServiceDep, admin: CurrentAdminDep, produc
 
 
 @router.get("/", response_model=list[ProductResponse])
-async def list_products(service: ProductServiceDep, admin: CurrentAdminDep,skip: int = 0, limit: int = 10):
+async def list_products(service: ProductServiceDep, user: CurrentCustomerDep,skip: int = 0, limit: int = 10):
     """
     Retrieve a paginated list of products.
     Args:
