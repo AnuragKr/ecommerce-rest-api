@@ -15,12 +15,14 @@ The controller layer is responsible for:
 
 API Endpoints:
 - POST /orders/ - Create new order (with stock validation)
-- GET /orders/{order_id} - Retrieve order by ID (access controlled)
 - GET /orders/ - List orders (admin only)
 - GET /orders/my-orders - List current user's orders
+- GET /orders/statistics - Get overall platform statistics (admin only)
+- GET /orders/user-statistics - Get user-specific statistics
+- GET /orders/health/stock-check - Stock health check (admin only)
+- GET /orders/{order_id} - Retrieve order by ID (access controlled)
 - PUT /orders/{order_id}/status - Update order status (admin only)
 - DELETE /orders/{order_id} - Delete order (access controlled)
-- GET /orders/{order_id}/statistics - Get order statistics
 """
 
 from fastapi import APIRouter, HTTPException, Depends, Query
@@ -54,7 +56,7 @@ async def create_order(
     Args:
         order (OrderCreate): Order creation data including items and shipping address
         service (OrderServiceDep): Injected order service dependency
-        current_user (CurrentUserDep): Currently authenticated user
+        current_user (CurrentCustomerDep): Currently authenticated user
         
     Returns:
         OrderResponse: Created order data with all details
@@ -76,40 +78,6 @@ async def create_order(
         raise HTTPException(status_code=500, detail="Unable to create order at this time")
 
 
-@router.get("/{order_id}", response_model=OrderResponse)
-async def get_order(
-    order_id: int,
-    service: OrderServiceDep,
-    current_user: CurrentCustomerDep
-):
-    """
-    Retrieve an order by ID with access control.
-    
-    Users can only view their own orders. This ensures data privacy
-    and prevents unauthorized access to order information.
-    
-    Args:
-        order_id (int): Unique identifier of the order to retrieve
-        service (OrderServiceDep): Injected order service dependency
-        current_user (CurrentUserDep): Currently authenticated user
-        
-    Returns:
-        OrderResponse: Order data with all details and items
-    """
-    try:
-        return await service.get_order(
-            order_id, 
-            user_id=current_user.user_id, 
-            is_admin=(current_user.role == "admin")
-        )
-    except OrderNotFoundError:
-        raise HTTPException(status_code=404, detail="Order not found")
-    except PermissionError as e:
-        raise HTTPException(status_code=403, detail=str(e))
-    except DatabaseError:
-        raise HTTPException(status_code=500, detail="Unable to retrieve order at this time")
-
-
 @router.get("/", response_model=List[OrderResponse])
 async def list_orders(
     service: OrderServiceDep,
@@ -117,7 +85,7 @@ async def list_orders(
     skip: int = Query(0, ge=0, description="Number of records to skip"),
     limit: int = Query(10, ge=1, le=100, description="Maximum number of records to return"),
     status: Optional[str] = Query(None, description="Filter by order status"),
-    user_id: Optional[int] = Query(None, description="Filter by user ID"),
+    user_id: Optional[int] = Query(None, description="Filter by specific user"),
     start_date: Optional[datetime] = Query(None, description="Filter by start date"),
     end_date: Optional[datetime] = Query(None, description="Filter by end date"),
     min_amount: Optional[Decimal] = Query(None, ge=0, description="Filter by minimum order amount"),
@@ -184,7 +152,7 @@ async def get_my_orders(
         skip (int): Number of records to skip for pagination
         limit (int): Maximum number of records to return (max 100)
         service (OrderServiceDep): Injected order service dependency
-        current_user (CurrentUserDep): Currently authenticated user
+        current_user (CurrentCustomerDep): Currently authenticated user
         
     Returns:
         List[OrderResponse]: List of user's orders
@@ -199,86 +167,38 @@ async def get_my_orders(
         raise HTTPException(status_code=500, detail="Unable to retrieve your orders at this time")
 
 
-@router.put("/{order_id}/status", response_model=OrderResponse)
-async def update_order_status(
+@router.get("/statistics")
+async def get_order_statistics(
     service: OrderServiceDep,
     current_admin: CurrentAdminDep,
-    order_id: int,
-    status: str,
 ):
     """
-    Update the status of an existing order (Admin only).
+    Get comprehensive order statistics across all users (Admin only).
     
-    This endpoint allows administrators to manage order workflow
-    by updating order statuses (pending → confirmed → shipped → delivered).
+    This endpoint provides administrators with detailed insights into:
+    - Total orders and sales across the platform
+    - Order distribution by status
+    - Top customers by order count
+    - Monthly sales trends
+    - Platform performance metrics
     
     Args:
-        order_id (int): Unique identifier of the order to update
-        status (str): New status for the order
         service (OrderServiceDep): Injected order service dependency
         current_admin (CurrentAdminDep): Currently authenticated admin user
         
     Returns:
-        OrderResponse: Updated order data
+        dict: Comprehensive overall order statistics
     """
     try:
-        return await service.update_order_status(order_id, status, is_admin=True)
-    except InvalidOrderError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except OrderNotFoundError:
-        raise HTTPException(status_code=404, detail="Order not found")
-    except PermissionError as e:
-        raise HTTPException(status_code=403, detail=str(e))
+        return await service.get_overall_order_statistics()
     except DatabaseError:
-        raise HTTPException(status_code=500, detail="Unable to update order status at this time")
+        raise HTTPException(status_code=500, detail="Unable to retrieve order statistics at this time")
 
 
-@router.delete("/{order_id}")
-async def delete_order(
+@router.get("/user-statistics")
+async def get_user_order_statistics(
     service: OrderServiceDep,
-    current_user: CurrentCustomerDep,
-    order_id: int,
-):
-    """
-    Delete an order with access control.
-    
-    Users can only delete their own pending orders, while admins
-    can delete any order. This prevents unauthorized deletions
-    and maintains data integrity.
-    
-    Args:
-        order_id (int): Unique identifier of the order to delete
-        service (OrderServiceDep): Injected order service dependency
-        current_user (CurrentUserDep): Currently authenticated user
-        
-    Returns:
-        dict: Success message confirming deletion
-    """
-    try:
-        deleted = await service.delete_order(
-            order_id, 
-            user_id=current_user.user_id, 
-            is_admin=(current_user.role == "admin")
-        )
-        
-        if deleted:
-            return {"message": "Order deleted successfully"}
-        else:
-            raise HTTPException(status_code=404, detail="Order not found")
-            
-    except OrderNotFoundError:
-        raise HTTPException(status_code=404, detail="Order not found")
-    except PermissionError as e:
-        raise HTTPException(status_code=403, detail=str(e))
-    except DatabaseError:
-        raise HTTPException(status_code=500, detail="Unable to delete order at this time")
-
-
-@router.get("/{order_id}/statistics")
-async def get_order_statistics(
-    service: OrderServiceDep,
-    current_user: CurrentCustomerDep,
-    order_id: int,
+    current_user: CurrentCustomerDep
 ):
     """
     Get order statistics for the currently authenticated user.
@@ -287,15 +207,14 @@ async def get_order_statistics(
     ordering patterns and spending habits.
     
     Args:
-        order_id (int): Unique identifier of the order (not used in current implementation)
         service (OrderServiceDep): Injected order service dependency
-        current_user (CurrentUserDep): Currently authenticated user
+        current_user (CurrentCustomerDep): Currently authenticated user
         
     Returns:
         dict: Order statistics including count, total sales, and average order value
     """
     try:
-        return await service.get_order_statistics(current_user.user_id)
+        return await service.get_overall_order_statistics_for_user(current_user.user_id)
     except DatabaseError:
         raise HTTPException(status_code=500, detail="Unable to retrieve order statistics at this time")
 
@@ -352,3 +271,112 @@ async def check_stock_health(
             "error": str(e),
             "message": "Failed to retrieve stock health information"
         }
+
+
+@router.get("/{order_id}", response_model=OrderResponse)
+async def get_order(
+    order_id: int,
+    service: OrderServiceDep,
+    current_user: CurrentCustomerDep
+):
+    """
+    Retrieve an order by ID with access control.
+    
+    Users can only view their own orders. This ensures data privacy
+    and prevents unauthorized access to order information.
+    
+    Args:
+        order_id (int): Unique identifier of the order to retrieve
+        service (OrderServiceDep): Injected order service dependency
+        current_user (CurrentCustomerDep): Currently authenticated user
+        
+    Returns:
+        OrderResponse: Order data with all details and items
+    """
+    try:
+        return await service.get_order(
+            order_id, 
+            user_id=current_user.user_id, 
+            is_admin=(current_user.role == "admin")
+        )
+    except OrderNotFoundError:
+        raise HTTPException(status_code=404, detail="Order not found")
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+    except DatabaseError:
+        raise HTTPException(status_code=500, detail="Unable to retrieve order at this time")
+
+
+@router.put("/{order_id}/status", response_model=OrderResponse)
+async def update_order_status(
+    service: OrderServiceDep,
+    current_admin: CurrentAdminDep,
+    order_id: int,
+    status: str,
+):
+    """
+    Update the status of an existing order (Admin only).
+    
+    This endpoint allows administrators to manage order workflow
+    by updating order statuses (pending → confirmed → shipped → delivered).
+    
+    Args:
+        order_id (int): Unique identifier of the order to update
+        status (str): New status for the order
+        service (OrderServiceDep): Injected order service dependency
+        current_admin (CurrentAdminDep): Currently authenticated admin user
+        
+    Returns:
+        OrderResponse: Updated order data
+    """
+    try:
+        return await service.update_order_status(order_id, status, is_admin=True)
+    except InvalidOrderError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except OrderNotFoundError:
+        raise HTTPException(status_code=404, detail="Order not found")
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+    except DatabaseError:
+        raise HTTPException(status_code=500, detail="Unable to update order status at this time")
+
+
+@router.delete("/{order_id}")
+async def delete_order(
+    service: OrderServiceDep,
+    current_user: CurrentCustomerDep,
+    order_id: int,
+):
+    """
+    Delete an order with access control.
+    
+    Users can only delete their own pending orders, while admins
+    can delete any order. This prevents unauthorized deletions
+    and maintains data integrity.
+    
+    Args:
+        order_id (int): Unique identifier of the order to delete
+        service (OrderServiceDep): Injected order service dependency
+        current_user (CurrentCustomerDep): Currently authenticated user
+        
+    Returns:
+        dict: Success message confirming deletion
+    """
+    try:
+        deleted = await service.delete_order(
+            order_id, 
+            user_id=current_user.user_id, 
+            is_admin=(current_user.role == "admin")
+        )
+        
+        if deleted:
+            return {"message": "Order deleted successfully"}
+        else:
+            raise HTTPException(status_code=404, detail="Order not found")
+            
+    except OrderNotFoundError:
+        raise HTTPException(status_code=404, detail="Order not found")
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+    except DatabaseError:
+        raise HTTPException(status_code=500, detail="Unable to delete order at this time")

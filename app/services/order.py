@@ -395,6 +395,80 @@ class OrderService:
             logger.error(f"Failed to get order statistics for user {user_id}: {str(e)}", exc_info=True)
             raise DatabaseError("Failed to get order statistics")
 
+    async def get_overall_order_statistics(self) -> dict:
+        """
+        Get comprehensive order statistics across all users.
+        
+        This method provides administrators with detailed insights into:
+        - Total orders and sales across the platform
+        - Order distribution by status
+        - Top customers by order count
+        - Monthly sales trends
+        
+        Returns:
+            dict: Comprehensive overall order statistics
+            
+        Raises:
+            DatabaseError: If database operation fails
+        """
+        try:
+            overall_stats = await self.repo.get_overall_order_statistics(self.session)
+            
+            # Add additional calculated metrics
+            if overall_stats['total_orders'] > 0:
+                overall_stats['metrics'] = {
+                    'orders_per_customer': overall_stats['total_orders'] / len(overall_stats['top_customers']) if overall_stats['top_customers'] else 0,
+                    'sales_per_order': overall_stats['total_sales'] / overall_stats['total_orders'],
+                    'active_customers': len(overall_stats['top_customers'])
+                }
+            else:
+                overall_stats['metrics'] = {
+                    'orders_per_customer': 0,
+                    'sales_per_order': 0,
+                    'active_customers': 0
+                }
+            
+            return overall_stats
+            
+        except Exception as e:
+            logger.error(f"Failed to get overall order statistics: {str(e)}", exc_info=True)
+            raise DatabaseError("Failed to get overall order statistics")
+
+    async def get_overall_order_statistics_for_user(self, user_id: int) -> dict:
+        """
+        Get comprehensive order statistics across all users.
+        
+        This method provides administrators with detailed insights into:
+        - Total orders and sales across the platform
+        - Order distribution by status
+        - Top customers by order count
+        - Monthly sales trends
+        
+        Returns:
+            dict: Comprehensive overall order statistics
+            
+        Raises:
+            DatabaseError: If database operation fails
+        """
+        try:
+            overall_stats = await self.repo.get_overall_order_statistics_for_user(self.session, user_id)
+            
+            # Add additional calculated metrics
+            if overall_stats['total_orders'] > 0:
+                overall_stats['metrics'] = {
+                    'sales_per_order': overall_stats['total_sales'] / overall_stats['total_orders'],
+                }
+            else:
+                overall_stats['metrics'] = {
+                    'sales_per_order': 0,
+                }
+            
+            return overall_stats
+            
+        except Exception as e:
+            logger.error(f"Failed to get overall order statistics: {str(e)}", exc_info=True)
+            raise DatabaseError("Failed to get overall order statistics")
+
     async def get_stock_health_info(self) -> dict:
         """
         Get comprehensive stock health information for admin dashboard.

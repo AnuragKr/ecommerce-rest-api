@@ -18,6 +18,7 @@ from app.models.user import User
 from app.schemas.order import OrderFilter
 from typing import List, Optional, Tuple
 from decimal import Decimal
+from datetime import datetime
 import logging
 
 logger = logging.getLogger(__name__)
@@ -355,6 +356,71 @@ class OrderRepository:
         )
         return result.scalar_one_or_none()
     
+    async def get_overall_order_statistics_for_user(self, db: AsyncSession, user_id: int) -> dict:
+        """
+        Get overall order statistics across user .
+        
+        Args:
+            db (AsyncSession): Database session for the operation
+            
+        Returns:
+            dict: Overall order statistics including total orders, total sales, and averages
+        """
+        try:
+            # Get total order count
+            result = await db.execute(select(func.count(Order.order_id)).where(Order.user_id == user_id))
+            total_orders = result.scalar() or 0
+
+            # Get total sales amount
+            result = await db.execute(select(func.sum(Order.total_amount)).where(Order.user_id == user_id))
+            total_sales = result.scalar() or Decimal('0.00')
+            
+            # Get average order value
+            average_order_value = total_sales / total_orders if total_orders > 0 else Decimal('0.00')
+            
+            # Get orders by status
+            result = await db.execute(
+                select(Order.status, func.count(Order.order_id))
+                .where(Order.user_id == user_id)
+                .group_by(Order.status)
+            )
+            orders_by_status = dict(result.fetchall())
+            
+            
+            # Get monthly sales trend (last 12 months) - simplified approach
+            result = await db.execute(
+                select(
+                    func.extract('year', Order.order_date).label('year'),
+                    func.extract('month', Order.order_date).label('month'),
+                    func.count(Order.order_id),
+                    func.sum(Order.total_amount)
+                )
+                .where(Order.user_id == user_id)
+                .group_by(func.extract('year', Order.order_date), func.extract('month', Order.order_date))
+                .order_by(func.extract('year', Order.order_date).desc(), func.extract('month', Order.order_date).desc())
+                .limit(12)
+            )
+            monthly_trend = [
+                {
+                    'month': f"{int(year)}-{int(month):02d}",
+                    'order_count': count,
+                    'total_sales': float(amount) if amount else 0.0
+                }
+                for year, month, count, amount in result.fetchall()
+            ]
+            
+            return {
+                'total_orders': total_orders,
+                'total_sales': float(total_sales),
+                'average_order_value': float(average_order_value),
+                'orders_by_status': orders_by_status,
+                'monthly_trend': monthly_trend,
+                'timestamp': datetime.now().isoformat()
+            }
+            
+        except Exception as e:
+            logger.error(f"Failed to get overall order statistics: {str(e)}")
+            raise
     async def get_order_count_by_user(self, db: AsyncSession, user_id: int) -> int:
         """
         Get the total count of orders for a specific user.
@@ -388,6 +454,81 @@ class OrderRepository:
             .where(Order.user_id == user_id)
         )
         return result.scalar() or Decimal('0.00')
+
+    async def get_overall_order_statistics(self, db: AsyncSession) -> dict:
+        """
+        Get overall order statistics across all users.
+        
+        Args:
+            db (AsyncSession): Database session for the operation
+            
+        Returns:
+            dict: Overall order statistics including total orders, total sales, and averages
+        """
+        try:
+            # Get total order count
+            result = await db.execute(select(func.count(Order.order_id)))
+            total_orders = result.scalar() or 0
+            
+            # Get total sales amount
+            result = await db.execute(select(func.sum(Order.total_amount)))
+            total_sales = result.scalar() or Decimal('0.00')
+            
+            # Get average order value
+            average_order_value = total_sales / total_orders if total_orders > 0 else Decimal('0.00')
+            
+            # Get orders by status
+            result = await db.execute(
+                select(Order.status, func.count(Order.order_id))
+                .group_by(Order.status)
+            )
+            orders_by_status = dict(result.fetchall())
+            
+            # Get top customers by order count
+            result = await db.execute(
+                select(Order.user_id, func.count(Order.order_id))
+                .group_by(Order.user_id)
+                .order_by(func.count(Order.order_id).desc())
+                .limit(10)
+            )
+            top_customers = [{'user_id': user_id, 'order_count': count} for user_id, count in result.fetchall()]
+            
+            # Get monthly sales trend (last 12 months) - simplified approach
+            result = await db.execute(
+                select(
+                    func.extract('year', Order.order_date).label('year'),
+                    func.extract('month', Order.order_date).label('month'),
+                    func.count(Order.order_id),
+                    func.sum(Order.total_amount)
+                )
+                .group_by(func.extract('year', Order.order_date), func.extract('month', Order.order_date))
+                .order_by(func.extract('year', Order.order_date).desc(), func.extract('month', Order.order_date).desc())
+                .limit(12)
+            )
+            monthly_trend = [
+                {
+                    'month': f"{int(year)}-{int(month):02d}",
+                    'order_count': count,
+                    'total_sales': float(amount) if amount else 0.0
+                }
+                for year, month, count, amount in result.fetchall()
+            ]
+            
+            return {
+                'total_orders': total_orders,
+                'total_sales': float(total_sales),
+                'average_order_value': float(average_order_value),
+                'orders_by_status': orders_by_status,
+                'top_customers': top_customers,
+                'monthly_trend': monthly_trend,
+                'timestamp': datetime.now().isoformat()
+            }
+            
+        except Exception as e:
+            logger.error(f"Failed to get overall order statistics: {str(e)}")
+            raise
+
+
 
     async def get_stock_health_info(self, db: AsyncSession) -> dict:
         """
