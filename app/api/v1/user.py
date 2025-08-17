@@ -21,10 +21,12 @@ API Endpoints:
 - GET /users/email/{email} - Retrieve user by email
 """
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from app.core.dependencies import UserServiceDep
 from app.schemas import UserCreate, UserUpdate, UserResponse, UserFilter
 from app.exceptions import UserNotFoundError, DatabaseError, UserAlreadyExistsError
+from fastapi.security import OAuth2PasswordRequestForm
+from typing import Annotated
 
 # Create router instance for user endpoints
 # All routes in this module will be prefixed with /users
@@ -162,3 +164,20 @@ async def get_user_by_email(service: UserServiceDep, email: str):
         raise HTTPException(status_code=404, detail="User not found")
     except DatabaseError:
         raise HTTPException(status_code=500, detail="Unable to retrieve user at this time")
+
+### Login the user
+@router.post("/login")
+async def login_user(
+    request_form: Annotated[OAuth2PasswordRequestForm, Depends()],
+    service: UserServiceDep,
+):
+    try:
+        access_token = await service.authenticate_user(request_form.username, request_form.password)
+        return {
+            "access_token": access_token,
+            "type": "jwt",
+        }
+    except UserNotFoundError:
+        raise HTTPException(status_code=404, detail="User not found")
+    except DatabaseError:
+        raise HTTPException(status_code=500, detail="Unable to provide access token at this time")

@@ -45,7 +45,7 @@ class UserRepository:
             User: User model instance if found, None otherwise
             
         """
-        result = await db.execute(select(User).where(User.customer_id == user_id))
+        result = await db.execute(select(User).where(User.user_id == user_id))
         return result.scalar_one_or_none()
 
     async def get_by_email(self, db: AsyncSession, email: str) -> User:
@@ -135,7 +135,12 @@ class UserRepository:
             - The user object is automatically added to the session
             - Changes are committed to the database
             - The object is refreshed to include generated values (e.g., ID)
+            - Explicitly handles ID generation to avoid conflicts
         """
+        # Ensure we don't have an explicit user_id to let the database generate it
+        if 'user_id' in create_data:
+            del create_data['user_id']
+        
         db_obj = User(**create_data)
         db.add(db_obj)
         await db.commit()

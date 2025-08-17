@@ -23,7 +23,7 @@ from app.exceptions import UserNotFoundError, DatabaseError, UserAlreadyExistsEr
 import logging
 from datetime import datetime
 from passlib.context import CryptContext
-
+from app.utils.security import generate_access_token
 # Configure logging for user service operations
 logger = logging.getLogger(__name__)
 
@@ -115,7 +115,7 @@ class UserService:
             
             # Create user in database
             user_model = await self.repo.create(self.session, create_data)
-            logger.info(f"User created successfully with ID: {user_model.customer_id}")
+            logger.info(f"User created successfully with ID: {user_model.user_id}")
             
             # Return user data without sensitive information
             return UserResponse.model_validate(user_model)
@@ -311,26 +311,12 @@ class UserService:
         """
         Authenticate a user with email and password.
         
-        This method implements secure user authentication by:
-        - Verifying user exists
-        - Checking password hash against stored hash
-        - Returning user data on successful authentication
-        
         Args:
             email (str): User's email address
             password (str): User's plain text password
             
         Returns:
             UserResponse: Authenticated user data (excluding password)
-            
-        Raises:
-            UserNotFoundError: If authentication fails (user not found or invalid password)
-            DatabaseError: If database operation fails
-            
-        Note:
-            - Passwords are never stored or logged in plain text
-            - Authentication failures are logged for security monitoring
-            - Uses secure password verification to prevent timing attacks
         """
         try:
             # Retrieve user by email
@@ -344,8 +330,16 @@ class UserService:
                 logger.warning(f"Authentication failed for email {email}: invalid password")
                 raise UserNotFoundError("Invalid credentials")
             
-            logger.info(f"User {user_model.customer_id} authenticated successfully")
-            return UserResponse.model_validate(user_model)
+            logger.info(f"User {user_model.user_id} authenticated successfully")
+
+            access_token = generate_access_token(data={
+            "user": {
+                "name": user_model.first_name + " " + user_model.last_name,
+                "id": user_model.user_id,
+                "role": user_model.role,
+            }      })
+
+            return access_token
             
         except UserNotFoundError:
             # Re-raise business logic exceptions

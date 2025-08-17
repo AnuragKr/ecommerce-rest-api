@@ -65,7 +65,6 @@ class UserBase(BaseModel):
     state: str = Field(..., min_length=1, description="State or province")
     postal_code: str = Field(..., min_length=1, description="Postal or ZIP code")
     country: str = Field(..., min_length=1, description="Country name")
-    role: Optional[str] = Field(None, description="User's role in the system")
     created_at: Optional[datetime] = Field(None, description="Account creation timestamp")
     updated_at: Optional[datetime] = Field(None, description="Last update timestamp")
     
@@ -73,26 +72,9 @@ class UserBase(BaseModel):
         # Enable ORM mode for SQLModel integration
         # This allows the schema to work with database models
         from_attributes = True
-        
-        # Schema examples for API documentation
-        json_schema_extra = {
-            "example": {
-                "first_name": "John",
-                "last_name": "Doe",
-                "email": "john.doe@example.com",
-                "phone": "+1-555-123-4567",
-                "address_line1": "123 Main Street",
-                "address_line2": "Apt 4B",
-                "city": "New York",
-                "state": "NY",
-                "postal_code": "10001",
-                "country": "USA",
-                "role": "customer"
-            }
-        }
 
 
-class UserCreate(UserBase):
+class UserCreate(BaseModel):
     """
     Schema for user creation requests.
     
@@ -112,28 +94,20 @@ class UserCreate(UserBase):
         - Plain text passwords are never stored in the database
         - Password strength validation should be implemented at the API level
     """
+    first_name: str = Field(..., min_length=1, description="User's first name")
+    last_name: str = Field(..., min_length=1, description="User's last name")
+    email: EmailStr = Field(..., description="User's email address")
+    phone: Optional[str] = Field(None, description="User's phone number")
+    address_line1: str = Field(..., min_length=1, description="Primary address line")
+    address_line2: Optional[str] = Field(None, description="Secondary address line")
+    city: str = Field(..., min_length=1, description="City name")
+    state: str = Field(..., min_length=1, description="State or province")
+    postal_code: str = Field(..., min_length=1, description="Postal or ZIP code")
+    country: str = Field(..., min_length=1, description="Country name")
     password: str = Field(..., min_length=6, description="User's password")
     
     class Config:
         from_attributes = True
-        
-        # Override example to include password
-        json_schema_extra = {
-            "example": {
-                "first_name": "John",
-                "last_name": "Doe",
-                "email": "john.doe@example.com",
-                "password": "securepassword123",
-                "phone": "+1-555-123-4567",
-                "address_line1": "123 Main Street",
-                "address_line2": "Apt 4B",
-                "city": "New York",
-                "state": "NY",
-                "postal_code": "10001",
-                "country": "USA",
-                "role": "customer"
-            }
-        }
 
 
 class UserUpdate(BaseModel):
@@ -178,21 +152,10 @@ class UserUpdate(BaseModel):
     state: Optional[str] = Field(None, min_length=1, description="State or province")
     postal_code: Optional[str] = Field(None, min_length=1, description="Postal or ZIP code")
     country: Optional[str] = Field(None, min_length=1, description="Country name")
-    role: Optional[str] = Field(None, description="User's role in the system")
     password: Optional[str] = Field(None, min_length=6, description="User's new password")
     
     class Config:
         from_attributes = True
-        
-        # Example for partial update
-        json_schema_extra = {
-            "example": {
-                "first_name": "Jane",
-                "city": "Los Angeles",
-                "phone": "+1-555-987-6543"
-            }
-        }
-
 
 class UserResponse(UserBase):
     """
@@ -216,30 +179,10 @@ class UserResponse(UserBase):
         - Authentication responses
         - Profile update confirmations
     """
-    customer_id: int = Field(..., description="Unique user identifier")
+    user_id: int = Field(..., description="Unique user identifier")
 
     class Config:
         from_attributes = True
-        
-        # Example response data
-        json_schema_extra = {
-            "example": {
-                "customer_id": 123,
-                "first_name": "John",
-                "last_name": "Doe",
-                "email": "john.doe@example.com",
-                "phone": "+1-555-123-4567",
-                "address_line1": "123 Main Street",
-                "address_line2": "Apt 4B",
-                "city": "New York",
-                "state": "NY",
-                "postal_code": "10001",
-                "country": "USA",
-                "role": "customer",
-                "created_at": "2024-01-15T10:30:00Z",
-                "updated_at": "2024-01-15T10:30:00Z"
-            }
-        }
 
 
 class UserFilter(BaseModel):
@@ -270,13 +213,3 @@ class UserFilter(BaseModel):
     search: Optional[str] = Field(None, description="Search term for name and email fields")
     city: Optional[str] = Field(None, description="Filter by city name")
     country: Optional[str] = Field(None, description="Filter by country name")
-    
-    class Config:
-        # Example filter usage
-        json_schema_extra = {
-            "example": {
-                "search": "john",
-                "city": "New York",
-                "country": "USA"
-            }
-        }

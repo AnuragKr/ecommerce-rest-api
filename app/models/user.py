@@ -63,7 +63,7 @@ class User(SQLModel, table=True):
     __table_args__ = {'schema': 'sales'}  # Organize business data in sales schema
     
     # Primary key - auto-generated unique identifier
-    customer_id: Optional[int] = Field(
+    user_id: Optional[int] = Field(
         default=None, 
         primary_key=True, 
         description="Unique user identifier"
@@ -159,24 +159,3 @@ class User(SQLModel, table=True):
         """
         # Enable ORM mode for database operations
         from_attributes = True
-        
-        # Schema examples for documentation
-        json_schema_extra = {
-            "example": {
-                "customer_id": 1,
-                "first_name": "John",
-                "last_name": "Doe",
-                "email": "john.doe@example.com",
-                "phone": "+1-555-123-4567",
-                "password": "hashed_password_string",
-                "role": "customer",
-                "address_line1": "123 Main Street",
-                "address_line2": "Apt 4B",
-                "city": "New York",
-                "state": "NY",
-                "postal_code": "10001",
-                "country": "USA",
-                "created_at": "2024-01-15T10:30:00Z",
-                "updated_at": "2024-01-15T10:30:00Z"
-            }
-        }

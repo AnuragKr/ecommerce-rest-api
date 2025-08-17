@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta, timezone
-
+from typing import Optional
 import jwt
 
 from app.config import security_settings
@@ -19,7 +19,7 @@ def generate_access_token(
     )
 
 
-def decode_access_token(token: str) -> dict | None:
+def decode_access_token(token: str) -> Optional[dict]:
     try:
         return jwt.decode(
             jwt=token,
