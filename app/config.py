@@ -68,6 +68,9 @@ class DatabaseSettings(BaseSettings):
     DATABASE_NAME: str
     DATABASE_POOL_SIZE: int
     DATABASE_MAX_OVERFLOW: int
+
+    REDIS_HOST: str
+    REDIS_PORT: int
     
     # Apply base configuration settings
     model_config = _base_config

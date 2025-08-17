@@ -9,3 +9,4 @@ scalar-fastapi>=0.1.0
 asyncpg>=0.29.0
 greenlet>=3.0.0
 aiosqlite>=0.19.0
+redis[hiredis]>=5.0.0

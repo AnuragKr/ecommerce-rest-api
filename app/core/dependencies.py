@@ -18,7 +18,6 @@ from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_session
-from app.schemas.user import UserResponse
 from app.services.product import ProductService
 from app.services.user import UserService
 from app.core.security import oauth2_scheme
@@ -26,7 +25,7 @@ from app.utils.security import decode_access_token
 from fastapi import HTTPException,status
 from app.models.user import User
 from sqlalchemy import select
-
+from app.core.redis import is_jti_blacklisted
 # Type annotation for database session dependency
 # This provides type hints for IDE support and runtime validation
 SessionDep = Annotated[AsyncSession, Depends(get_session)]
@@ -84,10 +83,10 @@ def get_user_service(session: SessionDep) -> UserService:
 UserServiceDep = Annotated[UserService, Depends(get_user_service)]
 
 # Access token data dep
-def get_access_token(token: Annotated[str, Depends(oauth2_scheme)]) -> dict:
+async def get_access_token(token: Annotated[str, Depends(oauth2_scheme)]) -> dict:
     data = decode_access_token(token)
 
-    if data is None:
+    if data is None or await is_jti_blacklisted(data["jti"]):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or expired access token",
