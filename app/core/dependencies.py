@@ -20,6 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_session
 from app.services.product import ProductService
 from app.services.user import UserService
+from app.services.order import OrderService
 from app.core.security import oauth2_scheme
 from app.utils.security import decode_access_token
 from fastapi import HTTPException,status
@@ -81,6 +82,28 @@ def get_user_service(session: SessionDep) -> UserService:
 # Type annotation for UserService dependency injection
 # This allows FastAPI to automatically inject the service into route handlers
 UserServiceDep = Annotated[UserService, Depends(get_user_service)]
+
+
+def get_order_service(session: SessionDep) -> OrderService:
+    """
+    Dependency function to create and inject OrderService instances.
+    
+    This function creates a new OrderService instance for each request,
+    ensuring proper isolation and resource management.
+    
+    Args:
+        session (SessionDep): Database session dependency
+        
+    Returns:
+        OrderService: Configured order service instance
+    
+    """
+    return OrderService(session)
+
+
+# Type annotation for OrderService dependency injection
+# This allows FastAPI to automatically inject the service into route handlers
+OrderServiceDep = Annotated[OrderService, Depends(get_order_service)]
 
 # Access token data dep
 async def get_access_token(token: Annotated[str, Depends(oauth2_scheme)]) -> dict:
