@@ -170,25 +170,7 @@ alembic upgrade head
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-### **Environment Variables**
-```env
-# Database Configuration
-DATABASE_SERVER=localhost
-DATABASE_PORT=5432
-DATABASE_USER=your_username
-DATABASE_PASSWORD=your_password
-DATABASE_NAME=ecommerce_db
-DATABASE_POOL_SIZE=10
-DATABASE_MAX_OVERFLOW=20
 
-# Redis Configuration
-REDIS_HOST=localhost
-REDIS_PORT=6379
-
-# Security Configuration
-JWT_SECRET=your_super_secret_jwt_key_here
-JWT_ALGORITHM=HS256
-```
 
 ## 📚 API Documentation
 
