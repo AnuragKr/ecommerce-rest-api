@@ -22,7 +22,7 @@ API Endpoints:
 """
 
 from fastapi import APIRouter, HTTPException, Depends
-from app.core.dependencies import UserServiceDep
+from app.core.dependencies import UserServiceDep,CurrentUserDep
 from app.schemas import UserCreate, UserUpdate, UserResponse, UserFilter
 from app.exceptions import UserNotFoundError, DatabaseError, UserAlreadyExistsError
 from fastapi.security import OAuth2PasswordRequestForm
@@ -181,3 +181,7 @@ async def login_user(
         raise HTTPException(status_code=404, detail="User not found")
     except DatabaseError:
         raise HTTPException(status_code=500, detail="Unable to provide access token at this time")
+
+@router.post("/dashboard")
+async def checklogin_user( user: CurrentUserDep):
+   return user

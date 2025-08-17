@@ -21,9 +21,10 @@ API Endpoints:
 """
 
 from fastapi import APIRouter, HTTPException
-from app.core.dependencies import ProductServiceDep
+from app.core.dependencies import ProductServiceDep,CurrentAdminDep
 from app.schemas import ProductCreate, ProductUpdate, ProductResponse
 from app.exceptions import ProductNotFoundError, DatabaseError
+
 
 # Create router instance for product endpoints
 # All routes in this module will be prefixed with /products
@@ -31,7 +32,7 @@ router = APIRouter(prefix="/products", tags=["products"])
 
 
 @router.get("/{product_id}", response_model=ProductResponse)
-async def get_product(service: ProductServiceDep, product_id: int):
+async def get_product(service: ProductServiceDep, admin: CurrentAdminDep, product_id: int):
     """
     Retrieve a product by its unique identifier.
     Args:
@@ -50,7 +51,7 @@ async def get_product(service: ProductServiceDep, product_id: int):
 
 
 @router.get("/", response_model=list[ProductResponse])
-async def list_products(service: ProductServiceDep, skip: int = 0, limit: int = 10):
+async def list_products(service: ProductServiceDep, admin: CurrentAdminDep,skip: int = 0, limit: int = 10):
     """
     Retrieve a paginated list of products.
     Args:
@@ -67,7 +68,7 @@ async def list_products(service: ProductServiceDep, skip: int = 0, limit: int = 
 
 
 @router.post("/", response_model=ProductResponse)
-async def create_product(service: ProductServiceDep, product: ProductCreate):
+async def create_product(service: ProductServiceDep, admin: CurrentAdminDep, product: ProductCreate):
     """
     Create a new product in the system.
     Args:
@@ -83,7 +84,7 @@ async def create_product(service: ProductServiceDep, product: ProductCreate):
 
 
 @router.put("/{product_id}", response_model=ProductResponse)
-async def update_product(service: ProductServiceDep, product_id: int, product: ProductUpdate):
+async def update_product(service: ProductServiceDep, admin: CurrentAdminDep, product_id: int, product: ProductUpdate):
     """
     Update an existing product in the system.
     Args:
@@ -102,7 +103,7 @@ async def update_product(service: ProductServiceDep, product_id: int, product: P
 
 
 @router.delete("/{product_id}")
-async def delete_product(service: ProductServiceDep, product_id: int):
+async def delete_product(service: ProductServiceDep, admin: CurrentAdminDep, product_id: int):
     """
     Delete a product from the system.
     Args:

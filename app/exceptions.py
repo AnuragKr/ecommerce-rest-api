@@ -144,3 +144,24 @@ class BusinessLogicError(Exception):
     def __init__(self, message: str = "Business logic rule violated"):
         self.message = message
         super().__init__(self.message)
+
+class UserNotAuthorizedError(Exception):
+    """
+    Exception raised when a requested user cannot be found.
+    
+    This exception is typically raised when:
+    - User ID doesn't exist in the database
+    - User has been deleted
+    - User is not accessible to the current user
+    - Email address doesn't match any existing user
+    
+    Attributes:
+        message (str): Human-readable error message describing the issue
+        
+    Example:
+        raise UserNotFoundError("User with email 'john@example.com' not found")
+    """
+    
+    def __init__(self, message: str = "User not authorized"):
+        self.message = message
+        super().__init__(self.message)
