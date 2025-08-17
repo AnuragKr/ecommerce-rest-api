@@ -26,7 +26,7 @@ API Endpoints:
 """
 
 from fastapi import APIRouter, HTTPException, Depends, Query
-from app.core.dependencies import OrderServiceDep, CurrentAdminDep, CurrentCustomerDep
+from app.core.dependencies import OrderServiceDep, CurrentAdminDep, CurrentCustomerDep, CurrentUserDep
 from app.schemas.order import OrderCreate, OrderResponse, OrderFilter, OrderUpdate
 from app.exceptions import OrderNotFoundError, DatabaseError, InsufficientStockError, InvalidOrderError, PermissionError
 from typing import Annotated, List, Optional
@@ -344,16 +344,14 @@ async def update_order_status(
 @router.delete("/{order_id}")
 async def delete_order(
     service: OrderServiceDep,
-    current_user: CurrentCustomerDep,
+    current_user: CurrentUserDep,
     order_id: int,
 ):
     """
     Delete an order with access control.
     
-    Users can only delete their own pending orders, while admins
-    can delete any order. This prevents unauthorized deletions
-    and maintains data integrity.
-    
+    Users can only delete their own pending orders, while admins can delete any order. This prevents unauthorized deletions and maintains data integrity.
+
     Args:
         order_id (int): Unique identifier of the order to delete
         service (OrderServiceDep): Injected order service dependency

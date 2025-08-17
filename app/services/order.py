@@ -108,7 +108,6 @@ class OrderService:
             
             for item in order_in.order_items:
                 # Find the validation result for this item
-                print("Hi",type(item))
                 validation_result = next(
                     (r for r in validation_results if r['product_id'] == item.product_id), 
                     None

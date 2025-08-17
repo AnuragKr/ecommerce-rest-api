@@ -10,7 +10,7 @@ making the code more maintainable and testable.
 """
 
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_, func, update
+from sqlalchemy import select, and_, func, update, delete
 from sqlalchemy.orm import selectinload
 from app.models.order import Order, OrderItem
 from app.models.product import Product
@@ -226,6 +226,9 @@ class OrderRepository:
         if not db_order:
             return False
         
+        # Delete child order items manually (not needed if using cascade)
+        await db.execute(delete(OrderItem).where(OrderItem.order_id == order_id))
+        # Now delete the order
         await db.delete(db_order)
         await db.commit()
         return True
@@ -331,7 +334,7 @@ class OrderRepository:
                     .where(Product.product_id == product_id)
                     .values(stock_quantity=Product.stock_quantity - quantity)
                 )
-            
+            await db.commit()
             return True
             
         except Exception as e:

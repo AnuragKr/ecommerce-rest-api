@@ -176,7 +176,6 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 
 ### **Interactive Documentation**
 - **Swagger UI**: `http://localhost:8000/docs`
-- **ReDoc**: `http://localhost:8000/redoc`
 - **Scalar**: `http://localhost:8000/scalar`
 
 ### **API Endpoints Overview**
