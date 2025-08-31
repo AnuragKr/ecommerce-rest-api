@@ -19,6 +19,7 @@ Key Features:
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_
 from app.models.product import Product
+from app.models.order import OrderItem
 from app.schemas.product import ProductFilter
 
 
@@ -183,25 +184,41 @@ class ProductRepository:
 
     async def delete(self, db: AsyncSession, product_id: int) -> bool:
         """
-        Delete a product record from the database.
+        Delete a product record from the database only if it's not present in any orders.
+        
+        This method performs a safety check to ensure that products with existing
+        order history are not accidentally deleted, maintaining data integrity.
         
         Args:
             db (AsyncSession): Database session for the operation
             product_id (int): Primary key of the product to delete
             
         Returns:
-            bool: True if deletion was successful, False if product not found
+            bool: True if deletion was successful, False if product not found or has orders
             
         Note:
             - This operation is irreversible
             - Returns False if the product doesn't exist
+            - Returns False if the product is present in any order items
+            - Only deletes products that have no order history
             - Consider soft deletes for production systems
-            - May need additional business rule checks (e.g., active orders)
         """
+        # Check if product exists
         db_obj = await self.get_by_id(db, product_id)
         if not db_obj:
             return False
         
+        # Check if product is present in any order items
+        order_items_result = await db.execute(
+            select(OrderItem).where(OrderItem.product_id == product_id)
+        )
+        existing_order_items = order_items_result.scalars().all()
+        
+        # If product has order history, don't delete it
+        if existing_order_items:
+            return False
+        
+        # Product has no order history, safe to delete
         await db.delete(db_obj)
         await db.commit()
         return True

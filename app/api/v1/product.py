@@ -116,6 +116,6 @@ async def delete_product(service: ProductServiceDep, admin: CurrentAdminDep, pro
         await service.delete_product(product_id)
         return {"message": "Product deleted successfully"}
     except ProductNotFoundError:
-        raise HTTPException(status_code=404, detail="Product not found")
+        raise HTTPException(status_code=404, detail="Product not found or has orders")
     except DatabaseError:
         raise HTTPException(status_code=500, detail="Unable to delete product at this time")

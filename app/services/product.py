@@ -267,8 +267,8 @@ class ProductService:
         try:
             deleted = await self.repo.delete(self.session, product_id)
             if not deleted:
-                logger.warning(f"Product deletion failed: product {product_id} not found")
-                raise ProductNotFoundError("Product not found")
+                logger.warning(f"Product deletion failed: product {product_id}")
+                raise ProductNotFoundError("Product not found or has orders")
             
             logger.info(f"Product {product_id} deleted successfully")
             return deleted
