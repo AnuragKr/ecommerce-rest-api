@@ -276,14 +276,13 @@ class OrderService:
             logger.error(f"Failed to list orders: {str(e)}", exc_info=True)
             raise DatabaseError("Failed to list orders")
 
-    async def update_order_status(self, order_id: int, status: str, is_admin: bool = False) -> OrderResponse:
+    async def update_order_status(self, order_id: int, status: str) -> OrderResponse:
         """
         Update the status of an existing order.
         
         Args:
             order_id (int): ID of the order to update
             status (str): New status for the order
-            is_admin (bool): Whether the requesting user is an admin
             
         Returns:
             OrderResponse: Updated order data
@@ -291,13 +290,8 @@ class OrderService:
         Raises:
             OrderNotFoundError: If order doesn't exist
             DatabaseError: If database operation fails
-            PermissionError: If non-admin user tries to update order status
         """
         try:
-            # Only admins can update order status
-            if not is_admin:
-                logger.warning("Non-admin user attempted to update order status")
-                raise PermissionError("Admin privileges required to update order status")
             
             # Validate status
             valid_statuses = ['pending', 'confirmed', 'shipped', 'delivered', 'cancelled']

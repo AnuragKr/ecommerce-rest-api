@@ -32,9 +32,15 @@ from app.exceptions import OrderNotFoundError, DatabaseError, InsufficientStockE
 from typing import Annotated, List, Optional
 from datetime import datetime
 from decimal import Decimal
+from pydantic import BaseModel
 
 # Create router instance for order endpoints
 router = APIRouter(prefix="/orders", tags=["orders"])
+
+
+class OrderStatusUpdate(BaseModel):
+    """Request model for order status updates."""
+    status: str
 
 
 @router.post("/", response_model=OrderResponse)
@@ -312,7 +318,7 @@ async def update_order_status(
     service: OrderServiceDep,
     current_admin: CurrentAdminDep,
     order_id: int,
-    status: str,
+    status_update: OrderStatusUpdate,
 ):
     """
     Update the status of an existing order (Admin only).
@@ -322,7 +328,7 @@ async def update_order_status(
     
     Args:
         order_id (int): Unique identifier of the order to update
-        status (str): New status for the order
+        status_update (OrderStatusUpdate): Request body containing the new status
         service (OrderServiceDep): Injected order service dependency
         current_admin (CurrentAdminDep): Currently authenticated admin user
         
@@ -330,7 +336,7 @@ async def update_order_status(
         OrderResponse: Updated order data
     """
     try:
-        return await service.update_order_status(order_id, status, is_admin=True)
+        return await service.update_order_status(order_id, status_update.status)
     except InvalidOrderError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except OrderNotFoundError:
