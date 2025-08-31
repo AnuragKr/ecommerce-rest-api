@@ -65,6 +65,11 @@ def create_application() -> FastAPI:
 app = create_application()
 
 
+@app.get("/")
+async def root():
+    return {"message": "E-commerce API is running"}
+
+
 @app.get("/scalar", include_in_schema=False)
 async def get_scalar_docs():
     """

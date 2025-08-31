@@ -10,8 +10,9 @@ making the code more maintainable and testable.
 """
 
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_
+from sqlalchemy import select, and_, delete
 from app.models.user import User
+from app.models.order import Order, OrderItem
 from app.schemas.user import UserFilter
 
 
@@ -90,9 +91,6 @@ class UserRepository:
         
         # Apply filters if provided
         if filters:
-            # Filter by user role (exact match)
-            if filters.role:
-                conditions.append(User.role == filters.role)
             
             # Search across multiple user fields (case-insensitive)
             if filters.search:
@@ -178,7 +176,12 @@ class UserRepository:
 
     async def delete(self, db: AsyncSession, user_id: int) -> bool:
         """
-        Delete a user record from the database.
+        Delete a user record from the database along with all related data.
+        
+        This method performs a cascading delete operation that removes:
+        1. All order items associated with the user's orders
+        2. All orders associated with the user
+        3. The user record itself
         
         Args:
             db (AsyncSession): Database session for the operation
@@ -188,14 +191,42 @@ class UserRepository:
             bool: True if deletion was successful, False if user not found
             
         Note:
-            - This operation is irreversible
+            - This operation is irreversible and removes all user-related data
             - Returns False if the user doesn't exist
-            - Consider soft deletes for production systems
+            - Uses the existing session transaction managed by dependency injection
         """
         db_obj = await self.get_by_id(db, user_id)
         if not db_obj:
             return False
         
-        await db.delete(db_obj)
-        await db.commit()
-        return True
+        try:
+            # Step 1: Delete all order items for orders belonging to this user
+            # First, get all order IDs for this user
+            user_orders_result = await db.execute(
+                select(Order.order_id).where(Order.user_id == user_id)
+            )
+            user_order_ids = user_orders_result.scalars().all()
+            
+            if user_order_ids:
+                # Delete all order items for these orders
+                await db.execute(
+                    delete(OrderItem).where(OrderItem.order_id.in_(user_order_ids))
+                )
+                
+                # Step 2: Delete all orders for this user
+                await db.execute(
+                    delete(Order).where(Order.user_id == user_id)
+                )
+            
+            # Step 3: Delete the user record
+            await db.delete(db_obj)
+            
+            # Commit all changes (session is managed by dependency injection)
+            await db.commit()
+            
+            return True
+            
+        except Exception as e:
+            # Rollback on any error
+            await db.rollback()
+            raise e

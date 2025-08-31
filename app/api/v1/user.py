@@ -57,7 +57,9 @@ async def login_user(
 @router.get("/logout")
 async def logout_user(token_data: Annotated[dict, Depends(get_access_token)]):
     await add_jti_to_blacklist(token_data["jti"])
-    return {"detail": "Successfully logged out"}
+    return {"message": "Successfully logged out"}
+
+
 @router.get("/{user_id}", response_model=UserResponse)
 async def get_user(service: UserServiceDep, user_id: int):
     """

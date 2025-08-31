@@ -94,6 +94,18 @@ class DatabaseSettings(BaseSettings):
         encoded_password = quote_plus(self.DATABASE_PASSWORD)
         return f"postgresql+asyncpg://{self.DATABASE_USER}:{encoded_password}@{self.DATABASE_SERVER}:{self.DATABASE_PORT}/{self.DATABASE_NAME}"
 
+    @property
+    def get_redis_url(self, db: int) -> str:
+        """
+        Generate the complete redis connection URL.
+        
+        This property constructs the full redis connection string.
+        
+        Returns:
+            str: Complete REDIS connection URL with redis driver
+        """
+        return f"redis://{self.REDIS_HOST}:{self.REDIS_PORT}/{db}"
+
 
 class SecuritySettings(BaseSettings):
     """
